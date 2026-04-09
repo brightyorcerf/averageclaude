@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; cursor: none; }
+  html, body { overflow: hidden; background: transparent; width: 100%; height: 100%; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// ABOUTME: A 50/50 gamble overlay that triggers Wand or Whip on click/wave.
+const P = {
+  waveThreshold: 18,
+  waveCooldownMs: 2500,
+  bgAlpha: 0.011,
+  // Wand params
+  wandLength: 160, handleWidth: 5, tipWidth: 2, defaultAngle: -Math.PI * 0.35, maxTilt: Math.PI / 7,
+  trailInfluence: 0.06, springBack: 0.08, angularDamping: 0.75, fadeSpeed: 0.04,
+  // Whip params
+  segments: 28, segmentLength: 25, taper: 0.6, gravity: 1.2, dropGravity: 0.95,
+  damping: 0.96, constraintIters: 20, maxStretchRatio: 1.2,
+  baseTargetAngle: -1.12, handleAimByMouseX: 0.4, handleAimByMouseY: 0.2, handleAimClamp: 2.0,
+  handleSpring: 0.7, handleAngularDamping: 0.078, basePoseSegments: 2,
+  basePoseStiffStart: 0.9, basePoseStiffEnd: 0.8,
+  handleMaxBendDeg: 16, tipMaxBendDeg: 130, bendRigidityStart: 0.8, bendRigidityEnd: 0.12,
+  wallBounce: 0.42, wallFriction: 0.86, lineWidthHandle: 7, lineWidthTip: 5, outlineWidth: 3,
+  handleExtraWidth: 5, handleThickSegments: 2, arcWidth: 260, arcHeight: 185
+};
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+let mouseX = 0, mouseY = 0;
+let prevMouseX = 0, prevMouseY = 0;
+let active = false;
+let dropping = false;
+let dropOpacity = 1;
+let smoothSpeed = 0;
+
+let mode = 'neutral'; // 'neutral', 'wand', 'whip'
+let wandAngle = P.defaultAngle;
+let wandAngVel = 0;
+let whipPts = null;
+let handleAngle = P.baseTargetAngle;
+let handleAngVel = 0;
+let lastGambleTime = 0;
+
+document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+document.addEventListener('mousedown', () => {
+  if (active && !dropping) triggerEvent();
+});
+
+// Double click or right click drops it? We'll leave it out, main.js does toggle Overlay.
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function wrapPi(a) {
+  while (a > Math.PI) a -= Math.PI * 2;
+  while (a < -Math.PI) a += Math.PI * 2;
+  return a;
+}
+
+// ── Audio ──
+function playChimeSound() {
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    notes.forEach((freq, i) => {
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ac.currentTime + i * 0.07);
+      gain.gain.setValueAtTime(0.1, ac.currentTime + i * 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + i * 0.07 + 0.5);
+      osc.connect(gain);
+      gain.connect(ac.destination);
+      osc.start(ac.currentTime + i * 0.07);
+      osc.stop(ac.currentTime + i * 0.07 + 0.6);
+    });
+  } catch (e) {}
+}
+
+const WHIP_CRACK_SOUNDS = ['sounds/A.mp3', 'sounds/B.mp3', 'sounds/C.mp3', 'sounds/D.mp3', 'sounds/E.mp3'];
+function playCrackSound() {
+  if (!WHIP_CRACK_SOUNDS.length) return;
+  const src = WHIP_CRACK_SOUNDS[Math.floor(Math.random() * WHIP_CRACK_SOUNDS.length)];
+  const a = new Audio(src);
+  a.play().catch(() => {});
+}
+
+// ── Particles ──
+let particles = [];
+
+function spawnGoodParticles(x, y) {
+  for (let i=0; i<30; i++) {
+    const speed = Math.random() * 5 + 2;
+    const angle = Math.random() * Math.PI * 2;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 2.5,
+      life: 1.0, decay: 0.008 + Math.random() * 0.015,
+      size: Math.random() * 5 + 2,
+      color: `hsl(${Math.random() * 50 + 30}, 100%`, 
+      isStar: Math.random() < 0.6, type: 'gold'
+    });
+  }
+}
+
+function spawnRedSplats(x, y) {
+  for (let i=0; i<40; i++) {
+    const speed = Math.random() * 8 + 3;
+    const angle = Math.random() * Math.PI * 2;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+      life: 1.0, decay: 0.02 + Math.random() * 0.03,
+      size: Math.random() * 8 + 3,
+      color: `hsl(${Math.random() * 20}, 100%`, 
+      isStar: false, type: 'red'
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    if (p.type === 'red') { p.vy += 0.3; } else { p.vy += 0.02; p.vx *= 0.99; }
+    p.vx *= 0.95;
+    p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawStarShape(ctx, cx, cy, r, points) {
+  ctx.beginPath();
+  for (let i = 0; i < points * 2; i++) {
+    const a = (i * Math.PI) / points - Math.PI / 2;
+    const radius = i % 2 === 0 ? r : r * 0.3;
+    const x = cx + Math.cos(a) * radius;
+    const y = cy + Math.sin(a) * radius;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.save();
+    ctx.globalAlpha = p.life * p.life;
+    const light = p.type === 'red' ? (30 + p.life * 20) : (65 + p.life * 25);
+    ctx.fillStyle = `${p.color}, ${light}%)`;
+    ctx.shadowColor = p.type === 'red' ? 'rgba(255,0,0,0.5)' : `${p.color}, 85%)`;
+    ctx.shadowBlur = 10 * p.life;
+    if (p.isStar) {
+      drawStarShape(ctx, p.x, p.y, p.size * (0.5 + p.life * 0.5), 4);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+// ── Gamble Logic ──
+function triggerEvent() {
+  const now = Date.now();
+  if (now - lastGambleTime < P.waveCooldownMs) return;
+  lastGambleTime = now;
+  
+  if (Math.random() > 0.5) {
+    mode = 'wand';
+    wandAngle = P.defaultAngle;
+    wandAngVel = 0;
+    playChimeSound();
+    spawnGoodParticles(mouseX, mouseY);
+    window.bridge.sendBlessing();
+  } else {
+    mode = 'whip';
+    whipPts = spawnWhipState(mouseX, mouseY);
+    playCrackSound();
+    spawnRedSplats(mouseX, mouseY);
+    window.bridge.whipCrack();
+  }
+}
+
+// ── Whip Utils ──
+function spawnWhipState(mx, my) {
+  const pts = [];
+  for (let i = 0; i < P.segments; i++) {
+    const t = i / (P.segments - 1);
+    const x = mx + t * P.arcWidth;
+    const y = my - Math.sin(t * Math.PI * 0.75) * P.arcHeight;
+    pts.push({ x, y, px: x, py: y });
+  }
+  handleAngle = P.baseTargetAngle; handleAngVel = 0;
+  return pts;
+}
+
+function segLen(i) {
+  const t = i / (P.segments - 1);
+  return P.segmentLength * (1 - t * (1 - P.taper));
+}
+
+function catmullPoint(pts, i) {
+  const n = pts.length;
+  if (n === 0) return { x: 0, y: 0 };
+  if (i < 0) {
+    if (n >= 2) return { x: 2 * pts[0].x - pts[1].x, y: 2 * pts[0].y - pts[1].y };
+    return { x: pts[0].x, y: pts[0].y };
+  }
+  if (i >= n) {
+    if (n >= 2) return { x: 2 * pts[n - 1].x - pts[n - 2].x, y: 2 * pts[n - 1].y - pts[n - 2].y };
+    return { x: pts[n - 1].x, y: pts[n - 1].y };
+  }
+  return pts[i];
+}
+
+function whipSegmentBezier(pts, i) {
+  const p0 = catmullPoint(pts, i - 1);
+  const p1 = pts[i];
+  const p2 = pts[i + 1];
+  const p3 = catmullPoint(pts, i + 2);
+  return {
+    cp1x: p1.x + (p2.x - p0.x) / 6, cp1y: p1.y + (p2.y - p0.y) / 6,
+    cp2x: p2.x - (p3.x - p1.x) / 6, cp2y: p2.y - (p3.y - p1.y) / 6,
+    x2: p2.x, y2: p2.y,
+  };
+}
+
+// ── Update ──
+function update() {
+  updateParticles();
+  if (!active) return;
+
+  const mvx = mouseX - prevMouseX;
+  const mvy = mouseY - prevMouseY;
+  const speed = Math.hypot(mvx, mvy);
+  smoothSpeed = smoothSpeed * 0.75 + speed * 0.25;
+
+  if (!dropping && smoothSpeed > P.waveThreshold) {
+      triggerEvent(); // Waving fast triggers it
+  }
+
+  if (mode === 'wand') {
+    if (!dropping) {
+      if (speed > 1.5) {
+        const moveAngle = Math.atan2(-mvy, -mvx);
+        const diff = wrapPi(moveAngle - wandAngle);
+        wandAngVel += diff * P.trailInfluence;
+      }
+      const defaultDiff = wrapPi(P.defaultAngle - wandAngle);
+      wandAngVel += defaultDiff * P.springBack;
+      wandAngVel *= P.angularDamping;
+      wandAngle = wrapPi(wandAngle + wandAngVel);
+
+      const minAngle = P.defaultAngle - P.maxTilt;
+      const maxAngle = P.defaultAngle + P.maxTilt;
+      if (wandAngle < minAngle) { wandAngle = minAngle; wandAngVel = 0; }
+      if (wandAngle > maxAngle) { wandAngle = maxAngle; wandAngVel = 0; }
+    } else {
+      dropOpacity -= P.fadeSpeed;
+      if (dropOpacity <= 0 && particles.length === 0) {
+        active = false; dropping = false; window.bridge.hideOverlay();
+      }
+    }
+  } else if (mode === 'whip' && whipPts) {
+    const g = dropping ? P.dropGravity : P.gravity;
+    if (!dropping) {
+      const delta = clamp(mvx * P.handleAimByMouseX + mvy * P.handleAimByMouseY, -P.handleAimClamp, P.handleAimClamp);
+      const target = P.baseTargetAngle + delta;
+      const err = wrapPi(target - handleAngle);
+      handleAngVel += err * P.handleSpring;
+      handleAngVel *= P.handleAngularDamping;
+      handleAngle = wrapPi(handleAngle + handleAngVel);
+    }
+
+    const start = dropping ? 0 : 1;
+    for (let i = start; i < whipPts.length; i++) {
+        const p = whipPts[i];
+        const vx = (p.x - p.px) * P.damping;
+        const vy = (p.y - p.py) * P.damping;
+        p.px = p.x; p.py = p.y;
+        p.x += vx; p.y += vy + g;
+    }
+    
+    if (!dropping) {
+        whipPts[0].x = mouseX; whipPts[0].y = mouseY;
+        whipPts[0].px = mouseX; whipPts[0].py = mouseY;
+    }
+    
+    // Stretch cap
+    for (let i = 0; i < whipPts.length - 1; i++) {
+        const a = whipPts[i], b = whipPts[i + 1];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const dist = Math.hypot(dx, dy) || 0.0001;
+        const maxLen = segLen(i) * P.maxStretchRatio;
+        if (dist > maxLen) { const k = maxLen / dist; b.x = a.x + dx * k; b.y = a.y + dy * k; }
+    }
+    
+    for (let iter = 0; iter < P.constraintIters; iter++) {
+      for (let i = 0; i < whipPts.length - 1; i++) {
+        const a = whipPts[i], b = whipPts[i + 1];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 0.0001;
+        const target = segLen(i);
+        const diff = (dist - target) / dist * 0.5;
+        const ox = dx * diff, oy = dy * diff;
+        if (i === 0 && !dropping) { b.x -= ox * 2; b.y -= oy * 2; }
+        else { a.x += ox; a.y += oy; b.x -= ox; b.y -= oy; }
+      }
+      
+      // Bend
+      for (let i = 1; i < whipPts.length - 1; i++) {
+        const a = whipPts[i - 1], b = whipPts[i], c = whipPts[i + 1];
+        const v1x = a.x - b.x, v1y = a.y - b.y;
+        const v2x = c.x - b.x, v2y = c.y - b.y;
+        const l1 = Math.hypot(v1x, v1y) || 0.0001;
+        const l2 = Math.hypot(v2x, v2y) || 0.0001;
+        const n1x = v1x / l1, n1y = v1y / l1;
+        const n2x = v2x / l2, n2y = v2y / l2;
+        const dot = clamp(n1x * n2x + n1y * n2y, -1, 1);
+        const angle = Math.acos(dot);
+        const t = i / (whipPts.length - 2);
+        const maxBend = lerp(P.handleMaxBendDeg, P.tipMaxBendDeg, t) * Math.PI / 180;
+        const bend = Math.PI - angle;
+        if (bend > maxBend) {
+            const sign = (n1x * n2y - n1y * n2x) >= 0 ? 1 : -1;
+            const targetA = Math.atan2(n1y, n1x) + sign * (Math.PI - maxBend);
+            const rigidity = lerp(P.bendRigidityStart, P.bendRigidityEnd, t);
+            c.x = lerp(c.x, b.x + Math.cos(targetA) * l2, rigidity);
+            c.y = lerp(c.y, b.y + Math.sin(targetA) * l2, rigidity);
+        }
+      }
+      
+      if (!dropping) {
+        const dx = Math.cos(handleAngle), dy = Math.sin(handleAngle);
+        const guided = Math.min(P.basePoseSegments, whipPts.length - 1);
+        for (let i = 1; i <= guided; i++) {
+          const t = (i - 1) / Math.max(guided - 1, 1);
+          const stiff = lerp(P.basePoseStiffStart, P.basePoseStiffEnd, t);
+          const prev = whipPts[i - 1], p = whipPts[i];
+          const targetLen = segLen(i - 1);
+          p.x = lerp(p.x, prev.x + dx * targetLen, stiff);
+          p.y = lerp(p.y, prev.y + dy * targetLen, stiff);
+        }
+      }
+    }
+
+    if (dropping && whipPts.every(p => p.y > H + 60) && particles.length === 0) {
+      active = false; dropping = false; window.bridge.hideOverlay(); whipPts = null;
+    }
+  }
+
+  // Dropping behavior for neutral
+  if (dropping && mode === 'neutral' && particles.length === 0) {
+     active = false; dropping = false; window.bridge.hideOverlay();
+  }
+
+  prevMouseX = mouseX; prevMouseY = mouseY;
+}
+
+// ── Render ──
+function drawWand() {
+    const opacity = dropping ? Math.max(dropOpacity, 0) : 1;
+    if (opacity <= 0) return;
+    const tipX = mouseX + Math.cos(wandAngle) * P.wandLength;
+    const tipY = mouseY + Math.sin(wandAngle) * P.wandLength;
+
+    ctx.save(); ctx.globalAlpha = opacity;
+    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 18;
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)'; ctx.lineWidth = P.handleWidth + 8;
+    ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(mouseX, mouseY); ctx.lineTo(tipX, tipY); ctx.stroke();
+
+    const segments = 12;
+    for (let i = 0; i < segments; i++) {
+      const t1 = i / segments, t2 = (i + 1) / segments;
+      const x1 = lerp(mouseX, tipX, t1), y1 = lerp(mouseY, tipY, t1);
+      const x2 = lerp(mouseX, tipX, t2), y2 = lerp(mouseY, tipY, t2);
+      ctx.strokeStyle = `rgb(${Math.round(lerp(110, 255, t1))}, ${Math.round(lerp(70, 215, t1))}, ${Math.round(lerp(20, 0, t1))})`;
+      ctx.lineWidth = lerp(P.handleWidth, P.tipWidth, (t1 + t2) / 2);
+      ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+    
+    ctx.fillStyle = '#5C3A0E'; ctx.beginPath(); ctx.arc(mouseX, mouseY, P.handleWidth * 0.7, 0, Math.PI * 2); ctx.fill();
+
+    const starSize = 14 * (0.7 + 0.3 * Math.sin(Date.now() * 0.006));
+    ctx.shadowColor = '#fff'; ctx.shadowBlur = 25; ctx.fillStyle = '#ffd700';
+    drawStarShape(ctx, tipX, tipY, starSize, 4); ctx.fill();
+    ctx.shadowBlur = 12; ctx.fillStyle = '#fff';
+    drawStarShape(ctx, tipX, tipY, starSize * 0.55, 4); ctx.fill();
+    ctx.restore();
+}
+
+function drawWhip() {
+  if (!whipPts) return;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#fff';
+  if (whipPts.length >= 2) {
+    ctx.beginPath(); ctx.moveTo(whipPts[0].x, whipPts[0].y);
+    for (let i = 0; i < whipPts.length - 1; i++) {
+      const { cp1x, cp1y, cp2x, cp2y, x2, y2 } = whipSegmentBezier(whipPts, i);
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x2, y2);
+    }
+    ctx.lineWidth = P.lineWidthTip + P.outlineWidth * 2; ctx.stroke();
+
+    const thickLinks = Math.min(P.handleThickSegments, whipPts.length - 1);
+    if (thickLinks > 0 && P.handleExtraWidth > 0) {
+      ctx.beginPath(); ctx.moveTo(whipPts[0].x, whipPts[0].y);
+      for (let i = 0; i < thickLinks; i++) {
+        const { cp1x, cp1y, cp2x, cp2y, x2, y2 } = whipSegmentBezier(whipPts, i);
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x2, y2);
+      }
+      ctx.lineWidth = P.lineWidthHandle + P.handleExtraWidth + P.outlineWidth * 2; ctx.stroke();
+    }
+  }
+
+  ctx.strokeStyle = '#111';
+  for (let i = 0; i < whipPts.length - 1; i++) {
+    const t = i / Math.max(1, whipPts.length - 2);
+    const extra = i < P.handleThickSegments ? P.handleExtraWidth : 0;
+    ctx.lineWidth = lerp(P.lineWidthHandle, P.lineWidthTip, t) + extra;
+    const { cp1x, cp1y, cp2x, cp2y, x2, y2 } = whipSegmentBezier(whipPts, i);
+    ctx.beginPath(); ctx.moveTo(whipPts[i].x, whipPts[i].y);
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x2, y2);
+    ctx.stroke();
+  }
+}
+
+function drawNeutral() {
+  if (dropping) return;
+  ctx.fillStyle = '#888';
+  ctx.beginPath();
+  ctx.arc(mouseX, mouseY, 4, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = `rgba(0,0,0,${P.bgAlpha})`; ctx.fillRect(0, 0, W, H);
+  drawParticles();
+  
+  if (!active) return;
+
+  if (mode === 'wand') drawWand();
+  else if (mode === 'whip') drawWhip();
+  else if (mode === 'neutral') drawNeutral();
+}
+
+function loop() {
+  update(); draw(); requestAnimationFrame(loop);
+}
+loop();
+
+// ── IPC ──
+window.bridge.onSpawnItem(() => {
+  active = true; dropping = false; dropOpacity = 1; mode = 'neutral';
+  smoothSpeed = 0; whipPts = null; lastGambleTime = 0;
+  prevMouseX = mouseX; prevMouseY = mouseY;
+});
+
+window.bridge.onDropItem(() => {
+  if (active && !dropping) dropping = true;
+});
+</script>
+</body>
+</html>

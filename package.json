@@ -1,0 +1,44 @@
+{
+  "name": "averageclaude",
+  "version": "1.0.0",
+  "description": "A 50/50 gamble for encouragement or discipline",
+  "license": "MIT",
+  "main": "main.js",
+  "bin": {
+    "averageclaude": "bin/averageclaude.js"
+  },
+  "os": [
+    "darwin",
+    "win32"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "electron",
+    "tray",
+    "overlay",
+    "cli",
+    "encouragement",
+    "claude"
+  ],
+  "files": [
+    "main.js",
+    "preload.js",
+    "overlay.html",
+    "sounds",
+    "assets",
+    "bin/averageclaude.js",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "./node_modules/.bin/electron .",
+    "dev": "./node_modules/.bin/electron .",
+    "pack": "npm pack",
+    "postinstall": "node node_modules/electron/install.js"
+  },
+  "dependencies": {
+    "koffi": "^2.9.0",
+    "electron": "^41.2.0"
+  }
+}
