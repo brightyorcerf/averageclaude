@@ -1,6 +1,6 @@
 {
   "name": "averageclaude",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A 50/50 gamble for encouragement or discipline",
   "license": "MIT",
   "main": "main.js",

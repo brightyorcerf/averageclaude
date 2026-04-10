@@ -53,7 +53,13 @@ let lastGambleTime = 0;
 
 document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
 document.addEventListener('mousedown', () => {
-  if (active && !dropping) triggerEvent();
+  if (active && !dropping) {
+    if (mode === 'neutral') {
+      triggerEvent();
+    } else {
+      dropping = true;
+    }
+  }
 });
 
 // Double click or right click drops it? We'll leave it out, main.js does toggle Overlay.

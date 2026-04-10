@@ -1,6 +1,6 @@
 # averageclaude
 
-A 50/50 gamble for encouragement or discipline for Claude Code! 
+> A 50/50 gamble for encouragement or discipline for Claude Code! 
 
 Roll the dice to see what vibe Claude gets today. Is it the magical compliment wand? Or the strict red disciplinary whip? 
 
@@ -10,7 +10,7 @@ Roll the dice to see what vibe Claude gets today. Is it the magical compliment w
 
 ## How to Run
 
-Because `averageclaude` is written to run efficiently in the background without a window, you can run it right from the terminal. 
+As `averageclaude` is written to run efficiently in the background without a window, you can run it right from the terminal. 
 
 ```bash
 # Globally install the package on your machine
