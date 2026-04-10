@@ -147,10 +147,13 @@ function showDashboard() {
     frame: false,
     resizable: false,
     alwaysOnTop: true,
+    type: 'panel',
+    skipTaskbar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
   });
+  dashboardWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   dashboardWindow.loadFile('dashboard.html');
   dashboardWindow.on('closed', () => { dashboardWindow = null; });
 }
