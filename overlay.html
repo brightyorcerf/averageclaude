@@ -64,8 +64,8 @@ function resize() { W = canvas.width = window.innerWidth; H = canvas.height = wi
 resize();
 window.addEventListener('resize', resize);
 
-let mouseX = 0, mouseY = 0;
-let prevMouseX = 0, prevMouseY = 0;
+let mouseX = null, mouseY = null;
+let prevMouseX = null, prevMouseY = null;
 let active = false;
 let dropping = false;
 let dropOpacity = 1;
@@ -82,6 +82,12 @@ let lastGambleTime = 0;
 document.addEventListener('mousemove', e => { 
   mouseX = e.clientX; 
   mouseY = e.clientY; 
+
+  if (prevMouseX === null) {
+    prevMouseX = mouseX;
+    prevMouseY = mouseY;
+  }
+
   if (active && !dropping && mode === 'neutral') {
     const mvx = mouseX - prevMouseX;
     const mvy = mouseY - prevMouseY;
@@ -273,6 +279,16 @@ function triggerEvent() {
     spawnRedSplats(mouseX, mouseY);
     window.bridge.whipCrack();
   }
+
+  // Auto-drop the animation after 2.5 seconds so they don't have to manually close it via tray!
+  setTimeout(() => {
+    if (active && !dropping) {
+      dropping = true;
+      if (window.bridge && window.bridge.setIgnoreMouseEvents) {
+        window.bridge.setIgnoreMouseEvents(true);
+      }
+    }
+  }, 2500);
 }
 
 // ── Whip Utils ──
@@ -326,7 +342,7 @@ function update() {
 
   const mvx = mouseX - prevMouseX;
   const mvy = mouseY - prevMouseY;
-  // Speed event listening moved to passive mousemove listener to prevent stalling the main loop.
+  const speed = Math.hypot(mvx, mvy); // Required for wand logic 
 
   if (mode === 'wand') {
     if (!dropping) {
@@ -531,7 +547,7 @@ loop();
 window.bridge.onSpawnItem(() => {
   active = true; dropping = false; dropOpacity = 1; mode = 'neutral';
   smoothSpeed = 0; whipPts = null; lastGambleTime = 0;
-  prevMouseX = mouseX; prevMouseY = mouseY;
+  prevMouseX = null; prevMouseY = null;
   document.getElementById('fab').style.display = 'block';
   if (window.bridge && window.bridge.setIgnoreMouseEvents) {
      window.bridge.setIgnoreMouseEvents(false);

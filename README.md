@@ -1,14 +1,14 @@
-![divider](assets/divider.png)
-
-# 🎲 averageclaude
+# averageclaude
 
 A 50/50 gamble for encouragement or discipline for Claude Code! 
 
 Roll the dice to see what vibe Claude gets today. Is it the magical compliment wand? Or the strict red disciplinary whip? 
 
+![img.png](img.png)
+
 ---
 
-## 🚀 How to Run
+## How to Run
 
 Now that we are officially published on the NPM registry, anyone in the world can install and run this application using a single command without needing to clone or download the code manually!
 
@@ -28,15 +28,15 @@ Once running, **nothing will appear to happen**. This is normal!
 
 ---
 
-## 📊 The Hustle Dashboard (Performance Review)
+## The Hustle Dashboard
 
 People love stats. This app gamifies your workflow by keeping a "score" of your psychological interactions with Claude.
 
 To access your stats:
 1. Right-click the `averageclaude` icon in your tray.
-2. Select **Performance Review**.
+2. Select **hustle dashboard**.
 
-An aesthetic glassmorphism window will appear containing your live stats:
+A window will appear containing your live stats:
 * **Total Blessings:** How many times you complimented the AI.
 * **Total Disciplines:** How many times you cracked the whip.
 * **Relationship Status:** A dynamic judgment of your current alignment (e.g. "Toxic", "Besties", "Professional", "Angelic", etc.).
@@ -52,7 +52,7 @@ Want to modify the physics, speed limits, or the text? It's easily customizable 
 
 ---
 
-## 🛠️ Debugging
+## Debugging
 
 **"Nothing types when the wand/whip triggers!"**
 macOS is blocking the automated keystrokes for your security. 
@@ -64,7 +64,7 @@ Your node environment interrupted the electron binary download during install.
 
 ---
 
-## 📖 The "Development Chronicle"
+## The "Development Chronicle"
 
 Publishing this app wasn't without its obstacles! Here is a brief history of our bugs, battles, and victories combining GoodClaude and BadClaude:
 1. **The Architecture Flattening:** Initially nested in `averageclaude/averageclaude/`, the local NPM linking completely broke when we flattened out the repos because our `.bin/averageclaude.js` executable got lost in transit.
@@ -73,3 +73,10 @@ Publishing this app wasn't without its obstacles! Here is a brief history of our
 4. **macOS Gatekeeping (`Error 1002`)**: macOS natively hates rogue apps sending ghost keystrokes, forcing us to explicitly document the Accessibility permission block.
 5. **The `EACCES` Trap**: A classic developer struggle. Trying to globally install to `/usr/local/lib/node_modules/` threw repeated permission errors until we forcefully used `sudo npm install -g .` to override the ghost of `root`.
 6. **The WebAuthn Security Block (`403 Forbidden`)**: During the final `npm publish` run, the terminal blocked us from pushing to the registry solely because Two-Factor Authentication via an active hardware Security Key was enabled. We successfully bypassed it by generating a Granular Access Token with 2FA bypass permissions directly from NPM!
+
+## other
+Enhanced UI & Global Visibility
+This update introduces a terminal-style Floating Action Button (FAB) that replaces the legacy 4-pixel cursor, providing a high-visibility interaction point optimized for Retina displays. To ensure a persistent "Anti-Yap" experience, the overlay now utilizes aggressive visibility logic, leveraging setVisibleOnAllWorkspaces and screen-saver level priority. This keeps the canvas pinned above full-screen terminal sessions and across all virtual desktops, ensuring the "Judgment" is always front and center regardless of your workflow.
+
+Optimized Performance & Seamless Interaction
+Under the hood, we’ve decoupled gesture tracking from the main rendering loop using passive listeners, eliminating DOM lag during high-speed proxy operations. The audio engine has been rebuilt to pre-load assets into memory, delivering a lag-free sound experience through native cloning. Most importantly, the new "Click-Through" bridge dynamically toggles native OS mouse hooks; as soon as an animation triggers, the overlay becomes transparent to user input, allowing you to continue terminal work uninterrupted while the visual effects play out around your code.

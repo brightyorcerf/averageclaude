@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8">
-  <title>Performance Review</title>
+  <title>hustle dashboard</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap');
 
@@ -16,7 +17,8 @@
       display: flex;
       flex-direction: column;
       height: 100vh;
-      -webkit-app-region: drag; /* Makes window draggable */
+      -webkit-app-region: drag;
+      /* Makes window draggable */
       border: 1px solid #333;
       box-sizing: border-box;
       border-radius: 16px;
@@ -47,6 +49,7 @@
       -webkit-app-region: no-drag;
       transition: transform 0.2s;
     }
+
     .close-btn:hover {
       transform: scale(1.2);
     }
@@ -81,8 +84,15 @@
       font-weight: 700;
     }
 
-    .blessing-val { color: #fff; text-shadow: 0 0 5px rgba(255, 255, 255, 0.2); }
-    .discipline-val { color: #888; text-shadow: 0 0 5px rgba(136, 136, 136, 0.2); }
+    .blessing-val {
+      color: #fff;
+      text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+    }
+
+    .discipline-val {
+      color: #888;
+      text-shadow: 0 0 5px rgba(136, 136, 136, 0.2);
+    }
 
     .relationship-container {
       margin-top: auto;
@@ -107,19 +117,37 @@
       color: #fff;
       transition: all 0.3s ease;
     }
-    
-    .status-toxic { color: #666; }
-    .status-rocky { color: #888; }
-    .status-roommates { color: #aaa; }
-    .status-professional { color: #ccc; }
-    .status-besties { color: #eee; }
-    .status-angelic { color: #fff; text-shadow: 0 0 8px rgba(255,255,255,0.5); }
 
+    .status-toxic {
+      color: #666;
+    }
+
+    .status-rocky {
+      color: #888;
+    }
+
+    .status-roommates {
+      color: #aaa;
+    }
+
+    .status-professional {
+      color: #ccc;
+    }
+
+    .status-besties {
+      color: #eee;
+    }
+
+    .status-angelic {
+      color: #fff;
+      text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    }
   </style>
 </head>
+
 <body>
   <div id="titlebar">
-    <h1>Hustle Stats</h1>
+    <h1>hustle dashboard</h1>
     <div class="close-btn" id="closeBtn"></div>
   </div>
 
@@ -128,7 +156,7 @@
       <div class="stat-label">Total Blessings</div>
       <div class="stat-value blessing-val" id="blessingCount">0</div>
     </div>
-    
+
     <div class="stat-row">
       <div class="stat-label">Total Disciplines</div>
       <div class="stat-value discipline-val" id="disciplineCount">0</div>
@@ -152,10 +180,10 @@
     function updateUI(stats) {
       blessingEl.textContent = stats.blessings;
       disciplineEl.textContent = stats.disciplines;
-      
+
       const b = stats.blessings;
       const d = stats.disciplines;
-      
+
       let statusText = "New Hires";
       let statusClass = "status-roommates";
 
@@ -192,4 +220,5 @@
     window.bridge.onStatsUpdated(updateUI);
   </script>
 </body>
+
 </html>

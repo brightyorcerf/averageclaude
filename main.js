@@ -24,11 +24,11 @@ let spawnQueued = false;
 let stats = { blessings: 0, disciplines: 0 };
 
 const VK_CONTROL = 0x11;
-const VK_RETURN  = 0x0D;
-const VK_C       = 0x43;
-const VK_MENU    = 0x12; // Alt
-const VK_TAB     = 0x09;
-const KEYUP      = 0x0002;
+const VK_RETURN = 0x0D;
+const VK_C = 0x43;
+const VK_MENU = 0x12; // Alt
+const VK_TAB = 0x09;
+const KEYUP = 0x0002;
 
 // Refocus hack removed to prioritize showInactive
 
@@ -92,6 +92,7 @@ function createOverlay() {
     frame: false,
     alwaysOnTop: true,
     focusable: false,
+    type: 'panel',
     skipTaskbar: true,
     resizable: false,
     hasShadow: false,
@@ -218,7 +219,7 @@ function sendMacro(vibe) {
   };
   const phrases = messages[vibe] || messages.good;
   let chosen = phrases[Math.floor(Math.random() * phrases.length)];
-  
+
   if (phrases.length > 1) {
     let attempts = 0;
     while (chosen === lastPhrase[vibe] && attempts < 10) {
@@ -287,7 +288,7 @@ app.whenReady().then(async () => {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Gamble (Toggle Overlay)', click: toggleOverlay },
-      { label: 'Performance Review', click: showDashboard },
+      { label: 'hustle dashboard', click: showDashboard },
       { type: 'separator' },
       { label: 'Quit', click: () => app.quit() },
     ])
