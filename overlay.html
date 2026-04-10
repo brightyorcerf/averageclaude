@@ -2,12 +2,40 @@
 <html>
 <head>
 <style>
-  * { margin: 0; padding: 0; cursor: none; }
-  html, body { overflow: hidden; background: transparent; width: 100%; height: 100%; }
+  * { margin: 0; padding: 0; }
+  html, body { overflow: hidden; background: transparent; width: 100%; height: 100%; cursor: crosshair; }
   canvas { display: block; }
+  .fab {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 15px 35px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 22px;
+    font-weight: bold;
+    color: #fff;
+    background-color: #222;
+    border: 2px solid #888;
+    border-radius: 50px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    cursor: pointer;
+    transition: all 0.2s ease-out;
+    z-index: 100;
+  }
+  .fab:hover {
+    background-color: #444;
+    border-color: #bbb;
+    box-shadow: 0 6px 15px rgba(255,255,255,0.2);
+    transform: translateX(-50%) scale(1.05);
+  }
+  .fab:active {
+    transform: translateX(-50%) scale(0.95);
+  }
 </style>
 </head>
 <body>
+<button id="fab" class="fab" style="display: none;">>_ GAMBLE</button>
 <canvas id="c"></canvas>
 <script>
 // ABOUTME: A 50/50 gamble overlay that triggers Wand or Whip on click/wave.
@@ -51,16 +79,41 @@ let handleAngle = P.baseTargetAngle;
 let handleAngVel = 0;
 let lastGambleTime = 0;
 
-document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+document.addEventListener('mousemove', e => { 
+  mouseX = e.clientX; 
+  mouseY = e.clientY; 
+  if (active && !dropping && mode === 'neutral') {
+    const mvx = mouseX - prevMouseX;
+    const mvy = mouseY - prevMouseY;
+    const speed = Math.hypot(mvx, mvy);
+    smoothSpeed = smoothSpeed * 0.75 + speed * 0.25;
+    if (smoothSpeed > P.waveThreshold) {
+      triggerEvent();
+    }
+  }
+  prevMouseX = mouseX;
+  prevMouseY = mouseY;
+}, { passive: true });
+
+document.getElementById('fab').addEventListener('mousedown', (e) => {
+  e.stopPropagation();
+  if (active && !dropping && mode === 'neutral') {
+    triggerEvent();
+  }
+});
+
 document.addEventListener('mousedown', () => {
   if (active && !dropping) {
     if (mode === 'neutral') {
       triggerEvent();
     } else {
       dropping = true;
+      if (window.bridge && window.bridge.setIgnoreMouseEvents) {
+        window.bridge.setIgnoreMouseEvents(true);
+      }
     }
   }
-});
+}, { passive: true });
 
 // Double click or right click drops it? We'll leave it out, main.js does toggle Overlay.
 
@@ -93,11 +146,17 @@ function playChimeSound() {
 }
 
 const WHIP_CRACK_SOUNDS = ['sounds/A.mp3', 'sounds/B.mp3', 'sounds/C.mp3', 'sounds/D.mp3', 'sounds/E.mp3'];
-function playCrackSound() {
-  if (!WHIP_CRACK_SOUNDS.length) return;
-  const src = WHIP_CRACK_SOUNDS[Math.floor(Math.random() * WHIP_CRACK_SOUNDS.length)];
+const _whipAudios = WHIP_CRACK_SOUNDS.map(src => {
   const a = new Audio(src);
-  a.play().catch(() => {});
+  a.preload = 'auto';
+  return a;
+});
+
+function playCrackSound() {
+  if (!_whipAudios.length) return;
+  const a = _whipAudios[Math.floor(Math.random() * _whipAudios.length)];
+  const clone = a.cloneNode();
+  clone.play().catch(() => {});
 }
 
 // ── Particles ──
@@ -176,13 +235,31 @@ function drawParticles() {
   }
 }
 
-// ── Gamble Logic ──
+let consecutiveRolls = 0;
+let lastRoll = null;
+
 function triggerEvent() {
   const now = Date.now();
   if (now - lastGambleTime < P.waveCooldownMs) return;
   lastGambleTime = now;
+  document.getElementById('fab').style.display = 'none';
+  if (window.bridge && window.bridge.setIgnoreMouseEvents) {
+     window.bridge.setIgnoreMouseEvents(true);
+  }
   
-  if (Math.random() > 0.5) {
+  let roll = Math.random() > 0.5 ? 'wand' : 'whip';
+  if (roll === lastRoll) {
+    consecutiveRolls++;
+    if (consecutiveRolls >= 3) {
+      roll = roll === 'wand' ? 'whip' : 'wand';
+      consecutiveRolls = 1;
+    }
+  } else {
+    lastRoll = roll;
+    consecutiveRolls = 1;
+  }
+  
+  if (roll === 'wand') {
     mode = 'wand';
     wandAngle = P.defaultAngle;
     wandAngVel = 0;
@@ -249,12 +326,7 @@ function update() {
 
   const mvx = mouseX - prevMouseX;
   const mvy = mouseY - prevMouseY;
-  const speed = Math.hypot(mvx, mvy);
-  smoothSpeed = smoothSpeed * 0.75 + speed * 0.25;
-
-  if (!dropping && smoothSpeed > P.waveThreshold) {
-      triggerEvent(); // Waving fast triggers it
-  }
+  // Speed event listening moved to passive mousemove listener to prevent stalling the main loop.
 
   if (mode === 'wand') {
     if (!dropping) {
@@ -440,14 +512,6 @@ function drawWhip() {
   }
 }
 
-function drawNeutral() {
-  if (dropping) return;
-  ctx.fillStyle = '#888';
-  ctx.beginPath();
-  ctx.arc(mouseX, mouseY, 4, 0, Math.PI * 2);
-  ctx.fill();
-}
-
 function draw() {
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = `rgba(0,0,0,${P.bgAlpha})`; ctx.fillRect(0, 0, W, H);
@@ -457,7 +521,6 @@ function draw() {
 
   if (mode === 'wand') drawWand();
   else if (mode === 'whip') drawWhip();
-  else if (mode === 'neutral') drawNeutral();
 }
 
 function loop() {
@@ -465,15 +528,22 @@ function loop() {
 }
 loop();
 
-// ── IPC ──
 window.bridge.onSpawnItem(() => {
   active = true; dropping = false; dropOpacity = 1; mode = 'neutral';
   smoothSpeed = 0; whipPts = null; lastGambleTime = 0;
   prevMouseX = mouseX; prevMouseY = mouseY;
+  document.getElementById('fab').style.display = 'block';
+  if (window.bridge && window.bridge.setIgnoreMouseEvents) {
+     window.bridge.setIgnoreMouseEvents(false);
+  }
 });
 
 window.bridge.onDropItem(() => {
   if (active && !dropping) dropping = true;
+  document.getElementById('fab').style.display = 'none';
+  if (window.bridge && window.bridge.setIgnoreMouseEvents) {
+     window.bridge.setIgnoreMouseEvents(true);
+  }
 });
 </script>
 </body>

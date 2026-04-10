@@ -10,16 +10,14 @@
       margin: 0;
       padding: 0;
       font-family: 'Outfit', sans-serif;
-      background: rgba(20, 20, 20, 0.85); /* Glassmorphism base */
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      background: #111;
       color: #fff;
       overflow: hidden;
       display: flex;
       flex-direction: column;
       height: 100vh;
       -webkit-app-region: drag; /* Makes window draggable */
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid #333;
       box-sizing: border-box;
       border-radius: 16px;
     }
@@ -43,7 +41,7 @@
     .close-btn {
       width: 12px;
       height: 12px;
-      background: #ff5f56;
+      background: #666;
       border-radius: 50%;
       cursor: pointer;
       -webkit-app-region: no-drag;
@@ -83,16 +81,16 @@
       font-weight: 700;
     }
 
-    .blessing-val { color: #facc15; text-shadow: 0 0 10px rgba(250, 204, 21, 0.4); }
-    .discipline-val { color: #ef4444; text-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+    .blessing-val { color: #fff; text-shadow: 0 0 5px rgba(255, 255, 255, 0.2); }
+    .discipline-val { color: #888; text-shadow: 0 0 5px rgba(136, 136, 136, 0.2); }
 
     .relationship-container {
       margin-top: auto;
       text-align: center;
       padding: 20px;
-      background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.08) 100%);
+      background: #1a1a1a;
       border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
+      border: 1px solid #333;
     }
 
     .relationship-label {
@@ -106,18 +104,16 @@
     .relationship-status {
       font-size: 24px;
       font-weight: 700;
-      background: linear-gradient(to right, #a8ff78, #78ffd6);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      color: #fff;
       transition: all 0.3s ease;
     }
     
-    .status-toxic { background: linear-gradient(to right, #ff4b1f, #ff9068); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .status-rocky { background: linear-gradient(to right, #f7971e, #ffd200); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .status-roommates { background: linear-gradient(to right, #e0c3fc, #8ec5fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .status-professional { background: linear-gradient(to right, #4facfe, #00f2fe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .status-besties { background: linear-gradient(to right, #fa709a, #fee140); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .status-angelic { background: linear-gradient(to right, #fdfbfb, #ebedee); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .status-toxic { color: #666; }
+    .status-rocky { color: #888; }
+    .status-roommates { color: #aaa; }
+    .status-professional { color: #ccc; }
+    .status-besties { color: #eee; }
+    .status-angelic { color: #fff; text-shadow: 0 0 8px rgba(255,255,255,0.5); }
 
   </style>
 </head>

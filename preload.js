@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('bridge', {
   sendBlessing: () => ipcRenderer.send('send-blessing'),
   whipCrack: () => ipcRenderer.send('whip-crack'),
   hideOverlay: () => ipcRenderer.send('hide-overlay'),
+  setIgnoreMouseEvents: (ignore) => ipcRenderer.send('set-ignore-mouse-events', ignore),
   onSpawnItem: (fn) => ipcRenderer.on('spawn-item', () => fn()),
   onDropItem: (fn) => ipcRenderer.on('drop-item', () => fn()),
   // Dashboard hook

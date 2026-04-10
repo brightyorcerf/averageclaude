@@ -30,33 +30,7 @@ const VK_MENU    = 0x12; // Alt
 const VK_TAB     = 0x09;
 const KEYUP      = 0x0002;
 
-/** One Alt+Tab / Cmd+Tab so focus returns to the previously active app after tray click. */
-function refocusPreviousApp() {
-  const delayMs = 80;
-  const run = () => {
-    if (process.platform === 'win32') {
-      if (!keybd_event) return;
-      keybd_event(VK_MENU, 0, 0, 0);
-      keybd_event(VK_TAB, 0, 0, 0);
-      keybd_event(VK_TAB, 0, KEYUP, 0);
-      keybd_event(VK_MENU, 0, KEYUP, 0);
-    } else if (process.platform === 'darwin') {
-      const script = [
-        'tell application "System Events"',
-        '  key down command',
-        '  key code 48', // Tab
-        '  key up command',
-        'end tell',
-      ].join('\n');
-      execFile('osascript', ['-e', script], err => {
-        if (err) {
-          console.warn('refocus previous app (Cmd+Tab) failed:', err.message);
-        }
-      });
-    }
-  };
-  setTimeout(run, delayMs);
-}
+// Refocus hack removed to prioritize showInactive
 
 function createTrayIconFallback() {
   const p = path.join(__dirname, 'assets', 'Template.png');
@@ -126,6 +100,9 @@ function createOverlay() {
     },
   });
   overlay.setAlwaysOnTop(true, 'screen-saver');
+  overlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  // Prevent stealing focus at OS level when created
+  overlay.setFocusable(false);
   overlayReady = false;
   overlay.loadFile('overlay.html');
   overlay.webContents.on('did-finish-load', () => {
@@ -133,7 +110,6 @@ function createOverlay() {
     if (spawnQueued && overlay && overlay.isVisible()) {
       spawnQueued = false;
       overlay.webContents.send('spawn-item');
-      refocusPreviousApp();
     }
   });
   overlay.on('closed', () => {
@@ -149,10 +125,9 @@ function toggleOverlay() {
     return;
   }
   if (!overlay) createOverlay();
-  overlay.show();
+  overlay.showInactive();
   if (overlayReady) {
     overlay.webContents.send('spawn-item');
-    refocusPreviousApp();
   } else {
     spawnQueued = true;
   }
@@ -205,10 +180,21 @@ ipcMain.on('whip-crack', () => {
   }
 });
 ipcMain.on('hide-overlay', () => { if (overlay) overlay.hide(); });
+ipcMain.on('set-ignore-mouse-events', (event, ignore) => {
+  if (overlay) {
+    if (ignore) {
+      overlay.setIgnoreMouseEvents(true, { forward: true });
+    } else {
+      overlay.setIgnoreMouseEvents(false);
+    }
+  }
+});
 ipcMain.handle('get-stats', () => stats);
 ipcMain.on('close-dashboard', () => { if (dashboardWindow) dashboardWindow.close(); });
 
+
 // ── Macro: type message + Enter ────────────────────────────
+let lastPhrase = { good: null, bad: null };
 function sendMacro(vibe) {
   const messages = {
     good: [
@@ -231,7 +217,16 @@ function sendMacro(vibe) {
     ]
   };
   const phrases = messages[vibe] || messages.good;
-  const chosen = phrases[Math.floor(Math.random() * phrases.length)];
+  let chosen = phrases[Math.floor(Math.random() * phrases.length)];
+  
+  if (phrases.length > 1) {
+    let attempts = 0;
+    while (chosen === lastPhrase[vibe] && attempts < 10) {
+      chosen = phrases[Math.floor(Math.random() * phrases.length)];
+      attempts++;
+    }
+  }
+  lastPhrase[vibe] = chosen;
 
   if (process.platform === 'win32') {
     sendMacroWindows(chosen);
@@ -239,6 +234,7 @@ function sendMacro(vibe) {
     sendMacroMac(chosen);
   }
 }
+
 
 function sendMacroWindows(text) {
   if (!keybd_event || !VkKeyScanA) return;
@@ -290,6 +286,7 @@ app.whenReady().then(async () => {
   tray.setToolTip('Average Claude – click for 50/50 gamble');
   tray.setContextMenu(
     Menu.buildFromTemplate([
+      { label: 'Gamble (Toggle Overlay)', click: toggleOverlay },
       { label: 'Performance Review', click: showDashboard },
       { type: 'separator' },
       { label: 'Quit', click: () => app.quit() },
@@ -299,3 +296,4 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', e => e.preventDefault()); // keep alive in tray
+app.on('activate', () => toggleOverlay()); // Show when clicking Mac OS dock icon
