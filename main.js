@@ -137,8 +137,7 @@ function toggleOverlay() {
 // ── Dashboard window ────────────────────────────────────────────────────────
 function showDashboard() {
   if (dashboardWindow) {
-    dashboardWindow.show();
-    dashboardWindow.focus();
+    dashboardWindow.showInactive();
     return;
   }
   dashboardWindow = new BrowserWindow({
@@ -147,6 +146,7 @@ function showDashboard() {
     frame: false,
     resizable: false,
     alwaysOnTop: true,
+    focusable: false,
     type: 'panel',
     skipTaskbar: true,
     webPreferences: {
@@ -296,7 +296,6 @@ app.whenReady().then(async () => {
       { label: 'Quit', click: () => app.quit() },
     ])
   );
-  tray.on('click', toggleOverlay);
 });
 
 app.on('window-all-closed', e => e.preventDefault()); // keep alive in tray
