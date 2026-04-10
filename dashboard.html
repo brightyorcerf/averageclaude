@@ -11,15 +11,14 @@
       margin: 0;
       padding: 0;
       font-family: 'Outfit', sans-serif;
-      background: #111;
-      color: #fff;
+      background: #ffffff;
+      color: #111111;
       overflow: hidden;
       display: flex;
       flex-direction: column;
       height: 100vh;
       -webkit-app-region: drag;
-      /* Makes window draggable */
-      border: 1px solid #333;
+      border: 1px solid #dddddd;
       box-sizing: border-box;
       border-radius: 16px;
     }
@@ -37,21 +36,22 @@
       font-weight: 500;
       text-transform: uppercase;
       letter-spacing: 2px;
-      color: rgba(255, 255, 255, 0.6);
+      color: rgba(0, 0, 0, 0.5);
     }
 
     .close-btn {
       width: 12px;
       height: 12px;
-      background: #666;
+      background: #cccccc;
       border-radius: 50%;
       cursor: pointer;
       -webkit-app-region: no-drag;
-      transition: transform 0.2s;
+      transition: transform 0.2s, background 0.2s;
     }
 
     .close-btn:hover {
       transform: scale(1.2);
+      background: #ff5f56;
     }
 
     #content {
@@ -67,16 +67,16 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(0, 0, 0, 0.03);
       padding: 15px 20px;
       border-radius: 12px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(0, 0, 0, 0.05);
     }
 
     .stat-label {
       font-size: 16px;
-      font-weight: 300;
-      color: #ddd;
+      font-weight: 500;
+      color: #555555;
     }
 
     .stat-value {
@@ -85,62 +85,60 @@
     }
 
     .blessing-val {
-      color: #fff;
-      text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+      color: #000000;
     }
 
     .discipline-val {
-      color: #888;
-      text-shadow: 0 0 5px rgba(136, 136, 136, 0.2);
+      color: #777777;
     }
 
     .relationship-container {
       margin-top: auto;
       text-align: center;
       padding: 20px;
-      background: #1a1a1a;
+      background: #f8f8f8;
       border-radius: 12px;
-      border: 1px solid #333;
+      border: 1px solid #eeeeee;
     }
 
     .relationship-label {
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #888;
+      color: #888888;
       margin-bottom: 5px;
     }
 
     .relationship-status {
       font-size: 24px;
       font-weight: 700;
-      color: #fff;
+      color: #000000;
       transition: all 0.3s ease;
     }
 
     .status-toxic {
-      color: #666;
+      color: #999999;
     }
 
     .status-rocky {
-      color: #888;
+      color: #777777;
     }
 
     .status-roommates {
-      color: #aaa;
+      color: #555555;
     }
 
     .status-professional {
-      color: #ccc;
+      color: #333333;
     }
 
     .status-besties {
-      color: #eee;
+      color: #111111;
     }
 
     .status-angelic {
-      color: #fff;
-      text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+      color: #000000;
+      text-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
     }
   </style>
 </head>
