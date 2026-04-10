@@ -8,4 +8,8 @@ contextBridge.exposeInMainWorld('bridge', {
   hideOverlay: () => ipcRenderer.send('hide-overlay'),
   onSpawnItem: (fn) => ipcRenderer.on('spawn-item', () => fn()),
   onDropItem: (fn) => ipcRenderer.on('drop-item', () => fn()),
+  // Dashboard hook
+  getStats: () => ipcRenderer.invoke('get-stats'),
+  onStatsUpdated: (fn) => ipcRenderer.on('stats-updated', (event, stats) => fn(stats)),
+  closeDashboard: () => ipcRenderer.send('close-dashboard')
 });

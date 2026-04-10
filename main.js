@@ -18,9 +18,10 @@ if (process.platform === 'win32') {
 }
 
 // ── Globals ─────────────────────────────────────────────────────────────────
-let tray, overlay;
+let tray, overlay, dashboardWindow;
 let overlayReady = false;
 let spawnQueued = false;
+let stats = { blessings: 0, disciplines: 0 };
 
 const VK_CONTROL = 0x11;
 const VK_RETURN  = 0x0D;
@@ -157,9 +158,38 @@ function toggleOverlay() {
   }
 }
 
+// ── Dashboard window ────────────────────────────────────────────────────────
+function showDashboard() {
+  if (dashboardWindow) {
+    dashboardWindow.show();
+    dashboardWindow.focus();
+    return;
+  }
+  dashboardWindow = new BrowserWindow({
+    width: 300, height: 400,
+    transparent: true,
+    frame: false,
+    resizable: false,
+    alwaysOnTop: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+    },
+  });
+  dashboardWindow.loadFile('dashboard.html');
+  dashboardWindow.on('closed', () => { dashboardWindow = null; });
+}
+
+function updateDashboardUI() {
+  if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+    dashboardWindow.webContents.send('stats-updated', stats);
+  }
+}
+
 // ── IPC ─────────────────────────────────────────────────────────────────────
 ipcMain.on('send-blessing', () => {
   try {
+    stats.blessings++;
+    updateDashboardUI();
     sendMacro('good');
   } catch (err) {
     console.warn('sendMacro failed:', err?.message || err);
@@ -167,12 +197,16 @@ ipcMain.on('send-blessing', () => {
 });
 ipcMain.on('whip-crack', () => {
   try {
+    stats.disciplines++;
+    updateDashboardUI();
     sendMacro('bad');
   } catch (err) {
     console.warn('sendMacro failed:', err?.message || err);
   }
 });
 ipcMain.on('hide-overlay', () => { if (overlay) overlay.hide(); });
+ipcMain.handle('get-stats', () => stats);
+ipcMain.on('close-dashboard', () => { if (dashboardWindow) dashboardWindow.close(); });
 
 // ── Macro: type message + Enter ────────────────────────────
 function sendMacro(vibe) {
@@ -256,6 +290,8 @@ app.whenReady().then(async () => {
   tray.setToolTip('Average Claude – click for 50/50 gamble');
   tray.setContextMenu(
     Menu.buildFromTemplate([
+      { label: 'Performance Review', click: showDashboard },
+      { type: 'separator' },
       { label: 'Quit', click: () => app.quit() },
     ])
   );
